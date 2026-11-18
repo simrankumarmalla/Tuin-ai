@@ -1,0 +1,17 @@
+# Python cache & environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+venv/
+env/
+.venv/
+
+# Audio / Temp Files
+*.mp3
+*.wav
+*.tmp
+
+# VS Code local settings
+.vscode/
