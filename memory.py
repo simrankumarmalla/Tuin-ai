@@ -224,20 +224,36 @@ class MemoryManager:
         lines.append("===========================================================\n")
         return "\n".join(lines)
 
-    def log_conversation(self, role: str, content: str, device: str = "laptop", session_id: str = "default_session"):
-        """Logs chat messages to Supabase for multi-device sync and history."""
-        if not self.is_connected or not content:
+    def _reconnect(self):
+        """Re-initializes the Supabase client if an existing connection dropped."""
+        if not self.url or not self.key or not SUPABASE_AVAILABLE:
             return
         try:
-            clean_role = "user" if role.lower() in ("user", "human") else "assistant"
-            self.client.table("conversations").insert({
-                "session_id": session_id,
-                "role": clean_role,
-                "content": content.strip(),
-                "device": device
-            }).execute()
-        except Exception as e:
-            logger.warning(f"[MEMORY] Error logging conversation: {e}")
+            self.client = create_client(self.url, self.key)
+            self._connected = True
+        except Exception:
+            pass
+
+    def log_conversation(self, role: str, content: str, device: str = "laptop", session_id: str = "default_session"):
+        """Logs chat messages to Supabase for multi-device sync and history with auto-reconnect."""
+        if not self.is_connected or not content:
+            return
+        clean_role = "user" if role.lower() in ("user", "human") else "assistant"
+        data = {
+            "session_id": session_id,
+            "role": clean_role,
+            "content": content.strip(),
+            "device": device
+        }
+        for attempt in range(2):
+            try:
+                self.client.table("conversations").insert(data).execute()
+                return
+            except Exception as e:
+                if attempt == 0:
+                    self._reconnect()
+                else:
+                    logger.debug(f"[MEMORY] Notice logging conversation: {e}")
 
     def get_recent_conversations(self, limit: int = 10, session_id: str = "default_session") -> List[Dict[str, Any]]:
         """Gets recent conversation history from Supabase."""

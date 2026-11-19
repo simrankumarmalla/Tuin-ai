@@ -144,26 +144,73 @@ class TuinBrain:
             temperature=0.7,
         )
 
+    def _sanitize_history_turns(self, history: Optional[List]) -> Optional[List[types.Content]]:
+        """
+        Sanitizes chat history so it strictly complies with Gemini API rules:
+        1. Strips low-level function_call/response protocol chunks and converts
+           conversation history into clean dialogue text, completely preventing
+           'function response turn comes immediately after function call turn' 400 errors.
+        2. Ensures strictly alternating user/model turns starting with 'user'.
+        3. Prunes to the last 10 conversational turns to avoid token limit overflow.
+        """
+        if not history:
+            return None
+
+        clean_turns: List[types.Content] = []
+        for item in history:
+            if not hasattr(item, "parts") or not item.parts:
+                continue
+
+            text_snippets = []
+            for p in item.parts:
+                if hasattr(p, "text") and p.text and p.text.strip():
+                    text_snippets.append(p.text.strip())
+
+            if text_snippets:
+                combined_text = "\n".join(text_snippets)
+                role = "user" if getattr(item, "role", "user") == "user" else "model"
+                if clean_turns and clean_turns[-1].role == role:
+                    existing_text = clean_turns[-1].parts[0].text
+                    clean_turns[-1] = types.Content(
+                        role=role,
+                        parts=[types.Part.from_text(text=f"{existing_text}\n{combined_text}")]
+                    )
+                else:
+                    clean_turns.append(
+                        types.Content(
+                            role=role,
+                            parts=[types.Part.from_text(text=combined_text)]
+                        )
+                    )
+
+        # History must start with a user turn
+        while clean_turns and clean_turns[0].role != "user":
+            clean_turns.pop(0)
+
+        # Keep last 10 turns
+        if len(clean_turns) > 10:
+            clean_turns = clean_turns[-10:]
+            while clean_turns and clean_turns[0].role != "user":
+                clean_turns.pop(0)
+
+        return clean_turns if clean_turns else None
+
     def _create_new_chat(self, model: str, history: Optional[List] = None) -> None:
         """Creates a fresh multi-turn chat session with tools explicitly registered."""
         if not self.client:
             return
 
-        # Prune chat history if it gets too long to avoid token limits
-        trimmed_history = None
-        if history:
-            trimmed_history = history[-10:] if len(history) > 10 else history
-
+        sanitized_history = self._sanitize_history_turns(history)
         config = self._get_config()
         self.chat = self.client.chats.create(
             model=model,
             config=config,
-            history=trimmed_history,
+            history=sanitized_history,
         )
         self.current_model = model
 
     def _switch_to_next_model(self) -> bool:
-        """Switches to the next fallback model in the pool while preserving chat history."""
+        """Switches to the next fallback model in the pool while preserving clean chat history."""
         self.model_index = (self.model_index + 1) % len(MODEL_POOL)
         next_model = MODEL_POOL[self.model_index]
         print(f"\n[Quota Optimization] Switching model to: '{next_model}'")
@@ -249,11 +296,11 @@ class TuinBrain:
         max_attempts = 3
         for attempt in range(max_attempts):
             try:
-                # Prune in-memory history if it grows excessively long to stay under token quotas
+                # Prune in-memory history cleanly if it grows excessively long
                 try:
                     history = self.chat.get_history()
                     if history and len(history) > 12:
-                        self._create_new_chat(self.current_model, history=history[-10:])
+                        self._create_new_chat(self.current_model, history=history)
                 except Exception:
                     pass
 
@@ -281,6 +328,17 @@ class TuinBrain:
 
                 is_rate_limit = any(term in error_str for term in ("quota", "429", "exhausted", "resource_exhausted"))
                 is_overload = any(term in error_str for term in ("503", "unavailable", "overloaded", "demand"))
+                is_history_error = any(term in error_str for term in ("function response turn", "invalid_argument", "400"))
+
+                if is_history_error and attempt < max_attempts - 1:
+                    print("[Self-Healing History] Sanitized conversation history to fix tool turn sequence. Retrying...")
+                    try:
+                        raw_history = self.chat.get_history() if self.chat else None
+                        safe_history = self._sanitize_history_turns(raw_history)
+                    except Exception:
+                        safe_history = None
+                    self._create_new_chat(self.current_model, history=safe_history)
+                    continue
 
                 if (is_rate_limit or is_overload) and attempt < max_attempts - 1:
                     print("[Rate Limit Mitigator] Pausing 2 seconds and failing over to next model...")
