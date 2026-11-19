@@ -377,6 +377,13 @@ def start_study_timer(minutes: int, topic: str = "Focus Session") -> str:
         alert_msg = f"\n\n⏰ [Timer Finished] Great job jaan! You completed your {duration_minutes}-minute study on '{clean_topic}'!\n"
         print(alert_msg)
 
+        # Log to Supabase cloud study tracker if available
+        try:
+            from memory import memory
+            memory.log_study_session(clean_topic, duration_minutes, completed=True, device="laptop")
+        except Exception:
+            pass
+
         if _timer_alert_callback is not None:
             try:
                 _timer_alert_callback(clean_topic, duration_minutes)
@@ -395,3 +402,42 @@ def start_study_timer(minutes: int, topic: str = "Focus Session") -> str:
     )
     print(f"[TOOL EXECUTED] start_study_timer(minutes={duration_minutes}, topic='{clean_topic}') -> {result}")
     return result
+
+
+def remember_this(category: str, memory_key: str, content: str, importance: int = 3) -> str:
+    """
+    Saves an important fact, personal preference, relationship detail, habit, promise, or goal
+    to Tuin's permanent lifetime memory in Supabase cloud. Tuin will remember this forever
+    across both your laptop and future mobile phone web app.
+
+    Args:
+        category: The memory category. Must be one of:
+                  'about_user' (facts about Simran: birthday, hobbies, college, habits),
+                  'about_tuin' (who Tuin is, her personality, role, identity),
+                  'shared_moments' (special memories, promises, milestones),
+                  'study_goals' (exams, syllabus, study targets, career ambitions),
+                  'preferences' (favorite food, music taste, likes/dislikes).
+        memory_key: Short identifier e.g. 'favorite_food', 'exam_schedule', 'relationship_rule'.
+        content: The actual memory text to remember forever in full detail.
+        importance: 1 to 5 (5 is highest importance, default 3).
+
+    Returns:
+        Confirmation message from Tuin.
+    """
+    try:
+        from memory import memory
+        result = memory.save_memory(
+            category=category,
+            memory_key=memory_key,
+            content=content,
+            importance=importance,
+            device="laptop"
+        )
+        print(f"[TOOL EXECUTED] remember_this(category='{category}', memory_key='{memory_key}') -> {result}")
+        return result
+    except Exception as exc:
+        traceback.print_exc()
+        err_msg = f"Could not save memory: {str(exc)}"
+        print(f"[TOOL ERROR] remember_this -> {err_msg}")
+        return err_msg
+

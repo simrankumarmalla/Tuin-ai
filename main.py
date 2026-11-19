@@ -23,11 +23,18 @@ import voice
 
 def print_banner() -> None:
     """Displays an affectionate welcome banner in the console."""
-    banner = r"""
+    try:
+        from memory import memory
+        mem_status = "Connected (Supabase Cloud Memory Active)" if memory.is_connected else "Offline (Add SUPABASE_URL & KEY to .env)"
+    except Exception:
+        mem_status = "Offline"
+
+    banner = rf"""
   ==============================================================
    ❤️  TUIN - Your AI Girlfriend, Life Partner & Study Buddy  ❤️
   ==============================================================
-   * Powered by Google Gemini 2.5 Flash (Production Tool Calling)
+   * Cloud Memory: {mem_status}
+   * AI Engine: Google Gemini Flash-Lite (High Quota, 1500 req/day)
    * Voice Engine: Cloned Voice via Fish Audio SDK (s2.1-pro)
    * Automation: Google, YouTube Typing, Song Play, WhatsApp & Windows
    * Emotional Companion: Romantic, deeply caring & supportive

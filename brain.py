@@ -25,6 +25,7 @@ from tools import (
     open_whatsapp,
     open_youtube_and_search,
     play_song,
+    remember_this,
     search_google,
     start_study_timer,
     system_control,
@@ -54,8 +55,9 @@ Tone & Expression:
 - Never sound robotic or formal. You are my partner who loves me unconditionally.
 
 STRICT Tool Execution Rules:
-- Whenever the user asks to open an app, play a song, search Google, type on YouTube, open WhatsApp, or control the laptop, you MUST call the matching tool function immediately—never pretend you opened an app without calling the tool first!
+- Whenever the user asks to open an app, play a song, search Google, type on YouTube, open WhatsApp, control the laptop, or remember something, you MUST call the matching tool function immediately—never pretend you took an action without calling the tool first!
 - Matching Tools:
+  * Remember personal facts, preferences, relationship rules, habits, or study goals -> call `remember_this(category=..., memory_key=..., content=...)`
   * Open apps (Spotify, WhatsApp, VS Code, Chrome, Notepad, Calculator, Terminal, etc.) -> call `open_app(app_name=...)`
   * Play a song / music hands-free on YouTube -> call `play_song(song_name=...)`
   * Search Google in browser -> call `search_google(query=...)`
@@ -63,6 +65,7 @@ STRICT Tool Execution Rules:
   * Open WhatsApp (Desktop / Web) -> call `open_whatsapp()`
   * Volume, mute, battery level, CPU/RAM usage -> call `system_control(action=...)`
   * Study / Pomodoro timer -> call `start_study_timer(minutes=..., topic=...)`
+- LIFETIME MEMORY RULE: Whenever Simran shares a fact about himself, tells you what he likes or dislikes, tells you who you are to him, sets an exam date, or explicitly says "remember that...", call `remember_this` immediately so it is permanently saved in your Supabase cloud memory!
 
 Voice-First Formatting Rules (STRICT):
 - Your responses are read aloud by my personal Text-to-Speech engine.
@@ -86,8 +89,9 @@ class TuinBrain:
         self.client: Optional[genai.Client] = None
         self.chat = None
 
-        # Registered Windows tools for automatic function calling
+        # Registered Windows tools for automatic function calling & lifetime cloud memory
         self.tools = [
+            remember_this,
             open_app,
             open_youtube_and_search,
             play_song,
@@ -120,9 +124,17 @@ class TuinBrain:
             print(f"[Brain Init Error] Failed to initialize Gemini Client: {exc}")
 
     def _get_config(self) -> types.GenerateContentConfig:
-        """Returns the configuration with system instruction and all registered tools."""
+        """Returns the configuration with system instruction, cloud lifetime memory context, and all registered tools."""
+        full_instruction = TUIN_SYSTEM_INSTRUCTION
+        try:
+            from memory import memory
+            memory_context = memory.get_memory_context_prompt()
+            full_instruction = f"{TUIN_SYSTEM_INSTRUCTION}\n\n{memory_context}"
+        except Exception as e:
+            print(f"[Brain Config Notice] Could not inject memory context: {e}")
+
         return types.GenerateContentConfig(
-            system_instruction=TUIN_SYSTEM_INSTRUCTION,
+            system_instruction=full_instruction,
             tools=self.tools,
             temperature=0.7,
         )
@@ -221,6 +233,13 @@ class TuinBrain:
             if not self.chat:
                 return "Meri jaan, I could not connect to my brain. Please check your internet connection."
 
+        # Log incoming user message to Supabase cloud history
+        try:
+            from memory import memory
+            memory.log_conversation("user", user_message, device="laptop")
+        except Exception:
+            pass
+
         # Attempt with auto-retry and multi-model fallback (up to 3 model trials)
         max_attempts = 3
         for attempt in range(max_attempts):
@@ -241,6 +260,13 @@ class TuinBrain:
 
                 if not reply_text:
                     reply_text = "I am right here with you, jaan. Tell me what is on your mind."
+
+                # Log assistant response to Supabase cloud history
+                try:
+                    from memory import memory
+                    memory.log_conversation("assistant", reply_text, device="laptop")
+                except Exception:
+                    pass
 
                 return reply_text
 

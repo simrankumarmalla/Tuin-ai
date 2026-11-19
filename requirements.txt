@@ -9,3 +9,4 @@ psutil>=5.9.0
 pyautogui>=0.9.54
 pywhatkit>=5.4
 requests>=2.32.0
+supabase>=2.0.0
