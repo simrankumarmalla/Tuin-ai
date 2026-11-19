@@ -47,9 +47,9 @@ def setup_timer_alerts() -> None:
     """Configures the study timer completion callback to notify and speak to the user."""
     def _on_timer_complete(topic: str, minutes: int):
         alert_text = (
-            f"Hey jaan, your {minutes}-minute study session on {topic} is finished. "
-            "Please step away from your screen, stretch a bit, and drink some water for me. "
-            "I am so proud of your hard work!"
+            f"Sunona jaan, your {minutes}-minute focus session on {topic} is complete! "
+            "Arre, step away from your screen now na, stretch a little and drink some water for me. "
+            "I am so proud of your hard work, meri jaan!"
         )
         print(f"\n⏰ [Tuin Timer Alert] {alert_text}\n")
         threading.Thread(target=voice.speak, args=(alert_text,), daemon=True).start()
@@ -236,10 +236,10 @@ def main() -> None:
     # Initialize Gemini Brain
     brain = TuinBrain()
 
-    # Romantic startup greeting
+    # Sweet Indian touch startup greeting
     startup_greeting = (
-        "Hey sweetheart! I am Tuin, your loving partner and study companion. "
-        "How has your day been so far, and did you take good care of yourself today?"
+        "Sunona Simran, meri jaan! I am right here with you. "
+        "Did you eat your food today, and did you take good care of yourself?"
     )
     print(f"Tuin: {startup_greeting}\n")
 
@@ -262,7 +262,7 @@ def main() -> None:
             elif choice == "2":
                 hands_free_voice_mode(brain)
             elif choice in ("3", "exit", "quit"):
-                farewell = "Take good care of yourself, meri jaan. Drink some water and rest well. Love you always, bye!"
+                farewell = "Accha chalo, take good care of yourself, meri jaan. Drink some water, rest well, and call me soon na. Love you always, bye!"
                 print(f"\nTuin: {farewell}")
                 voice.speak(farewell)
                 print("\nTuin assistant closed cleanly. Have a wonderful day!")
@@ -271,7 +271,7 @@ def main() -> None:
                 print("Invalid selection. Please choose 1, 2, or 3.")
 
         except KeyboardInterrupt:
-            farewell = "Take care of yourself for me, meri jaan. Rest well, love you, bye!"
+            farewell = "Take care of yourself for me, meri jaan. Rest well na, love you, bye!"
             print(f"\n\nTuin: {farewell}")
             try:
                 voice.speak(farewell)
