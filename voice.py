@@ -251,7 +251,7 @@ def speak(text: str) -> None:
                 pass
 
 
-def listen(prompt: Optional[str] = None, timeout: Optional[int] = 5, phrase_time_limit: int = 12) -> Tuple[str, str]:
+def listen(prompt: Optional[str] = None, timeout: Optional[int] = 15, phrase_time_limit: int = 20) -> Tuple[str, str]:
     """
     Listens for speech input from the microphone using SpeechRecognition and PyAudio.
     
@@ -292,7 +292,7 @@ def listen(prompt: Optional[str] = None, timeout: Optional[int] = 5, phrase_time
         return "", "ERROR"
 
 
-def listen_for_wake_word(listen_timeout: int = 3, phrase_time_limit: int = 4) -> Tuple[bool, str]:
+def listen_for_wake_word(listen_timeout: int = 15, phrase_time_limit: int = 15) -> Tuple[bool, str]:
     """
     Listens in short phrases for 'tuin' (and common phonetic matches 'twin',
     'to in', 'tuwin', 'hey tuin'). Returns (is_detected, extracted_command).

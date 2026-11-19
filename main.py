@@ -154,8 +154,8 @@ def hands_free_voice_mode(brain: TuinBrain) -> None:
 
     while True:
         try:
-            print("\n🎙️ [Tuin is listening... speak to your partner]", flush=True)
-            text, status = voice.listen(timeout=7, phrase_time_limit=14)
+            print("\n🎙️ [Tuin is listening for 15 seconds... speak to your partner]", flush=True)
+            text, status = voice.listen(timeout=15, phrase_time_limit=20)
 
             if status == "SUCCESS" and text:
                 print(f"Heard: \"{text}\"")
@@ -178,8 +178,8 @@ def hands_free_voice_mode(brain: TuinBrain) -> None:
                     voice.speak(wake_ack)
 
                     # Listen specifically for the follow-up request
-                    print("🎙️ [Listening for your request, jaan...]", flush=True)
-                    cmd_text, cmd_status = voice.listen(timeout=8, phrase_time_limit=15)
+                    print("🎙️ [Listening for your request (15s), jaan...]", flush=True)
+                    cmd_text, cmd_status = voice.listen(timeout=15, phrase_time_limit=20)
                     if cmd_status == "SUCCESS" and cmd_text:
                         command = cmd_text
                         print(f"You said: \"{command}\"")
