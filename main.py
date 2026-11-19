@@ -7,12 +7,14 @@ Features:
 - Mode 2: Hands-Free Voice Partner Mode (Wake-word 'Tuin' detection, hands-free automation & romantic voice chat)
 - Non-blocking background study timer integration with voice reminders
 - Graceful shutdown on Ctrl+C (KeyboardInterrupt) with a sweet farewell
+- Comprehensive error visibility (traceback printing on console)
 """
 
 import os
 import sys
 import threading
 import time
+import traceback
 
 from brain import TuinBrain
 from tools import set_timer_alert_callback
@@ -25,7 +27,7 @@ def print_banner() -> None:
   ==============================================================
    ❤️  TUIN - Your AI Girlfriend, Life Partner & Study Buddy  ❤️
   ==============================================================
-   * Powered by Google Gemini 3.8 Flash (Multi-turn & Automation)
+   * Powered by Google Gemini 2.5 Flash (Production Tool Calling)
    * Voice Engine: Cloned Voice via Fish Audio SDK (s2.1-pro)
    * Automation: Google, YouTube Typing, Song Play, WhatsApp & Windows
    * Emotional Companion: Romantic, deeply caring & supportive
@@ -117,6 +119,9 @@ def text_chat_mode(brain: TuinBrain) -> None:
         except KeyboardInterrupt:
             print("\n\n[Chat Interrupted]")
             break
+        except Exception as exc:
+            traceback.print_exc()
+            print(f"\n[Chat Error] {exc}")
 
 
 def hands_free_voice_mode(brain: TuinBrain) -> None:
@@ -209,6 +214,7 @@ def hands_free_voice_mode(brain: TuinBrain) -> None:
             print("\n\n[Voice Mode Paused by User]")
             break
         except Exception as exc:
+            traceback.print_exc()
             print(f"\n[Voice Mode Notice] {exc}")
             time.sleep(1)
 

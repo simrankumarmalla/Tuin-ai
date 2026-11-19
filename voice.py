@@ -17,6 +17,7 @@ import os
 import re
 import tempfile
 import time
+import traceback
 import winsound
 from typing import List, Optional, Tuple
 
@@ -117,6 +118,7 @@ def calibrate_microphone() -> None:
                 _recognizer.energy_threshold = 900
             print(f"[Microphone ready! Energy threshold: {int(_recognizer.energy_threshold)}]")
     except Exception as exc:
+        traceback.print_exc()
         print(f"[Warning] Microphone calibration note: {exc}")
 
 
@@ -158,6 +160,7 @@ def _synthesize_fish_audio(text: str, output_path: str) -> bool:
         return os.path.exists(output_path) and os.path.getsize(output_path) > 500
 
     except Exception as exc:
+        traceback.print_exc()
         print(f"[Fish Audio Notice] SDK generation failed ({exc}). Trying fallback...")
         # Direct REST API backup attempt
         try:
@@ -171,7 +174,7 @@ def _synthesize_fish_audio(text: str, output_path: str) -> bool:
                     f.write(resp.content)
                 return True
         except Exception:
-            pass
+            traceback.print_exc()
         return False
 
 
@@ -237,6 +240,7 @@ def speak(text: str) -> None:
             clock.tick(15)
 
     except Exception as exc:
+        traceback.print_exc()
         print(f"[TTS Playback Error] {exc}")
     finally:
         stop_audio()
@@ -279,9 +283,11 @@ def listen(prompt: Optional[str] = None, timeout: Optional[int] = 5, phrase_time
     except sr.UnknownValueError:
         return "", "UNCLEAR"
     except sr.RequestError as exc:
+        traceback.print_exc()
         print(f"\n[STT Network Notice] Could not reach speech service: {exc}")
         return "", "ERROR"
     except Exception as exc:
+        traceback.print_exc()
         print(f"\n[Microphone Error] {exc}")
         return "", "ERROR"
 
