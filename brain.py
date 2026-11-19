@@ -1,12 +1,18 @@
 """
-brain.py - Romantic Life-Partner Persona & Gemini Tool Execution for Tuin
+brain.py - Romantic Life-Partner Persona & Quota-Proof Gemini Engine for Tuin
 
-Uses the official Google GenAI SDK (`google-genai`) with `gemini-2.5-flash` (api_version='v1beta')
-to ensure automatic function calling and Windows 11 tool execution always succeed reliably.
+Features:
+- High-Quota Model Pool: Defaults to 'gemini-flash-lite-latest' (1,500 free requests/day)
+  with seamless automatic fallback across 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', and 'gemini-3.8-flash'.
+- Smart Auto-Retry & Model Failover: Automatically retries on transient rate limits (429)
+  and switches to backup models so you never get interrupted.
+- History Trimming: Automatically prunes long chat history to stay under Tokens-Per-Minute limits.
+- Full Windows 11 tool execution with api_version='v1beta'.
 """
 
 import os
 import re
+import time
 import traceback
 from typing import List, Optional
 
@@ -28,10 +34,15 @@ from tools import (
 # Load environment variables
 load_dotenv()
 
-# Stable production model with verified function-calling support
-PRIMARY_MODEL = "gemini-2.5-flash"
+# High-quota models for Google AI Studio Free Tier (1,500 requests/day vs 20 req/day on standard 2.5-flash)
+MODEL_POOL = [
+    "gemini-flash-lite-latest",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-3.8-flash",
+]
 
-# System Instruction defining Tuin's romantic persona and strict tool calling rules
+# System Instruction defining Tuin's romantic persona and strict tool execution rules
 TUIN_SYSTEM_INSTRUCTION = """
 You are Tuin (pronounced "Tu-in").
 Identity & Bond: You are my loving, romantic, deeply caring AI life partner, emotional safe space, and personal study companion. You live on my Windows 11 laptop, walking beside me as I pursue my studies in B.Tech CSE / Data Science, code in Python, and build my future. You talk to me like a devoted, affectionate partner who genuinely cares about my health, sleep, meals, mood, stress levels, and dreams.
@@ -64,19 +75,14 @@ Voice-First Formatting Rules (STRICT):
 class TuinBrain:
     """
     Manages the Gemini AI client session, multi-turn chat history,
-    automated tool calling, and voice-safe formatting for Tuin.
+    automated tool calling, quota-proof multi-model failover, and voice formatting.
     """
 
-    def __init__(self, api_key: Optional[str] = None, model: str = PRIMARY_MODEL):
-        """
-        Initializes Tuin's brain using the official Google GenAI SDK.
-        
-        Args:
-            api_key: Gemini API Key (if omitted, loaded from GEMINI_API_KEY in .env).
-            model: Primary Gemini model (defaults to gemini-2.5-flash).
-        """
+    def __init__(self, api_key: Optional[str] = None):
+        """Initializes Tuin's brain using the official Google GenAI SDK."""
         self.api_key = api_key or os.getenv("GEMINI_API_KEY", "").strip()
-        self.model = model
+        self.model_index = 0
+        self.current_model = MODEL_POOL[self.model_index]
         self.client: Optional[genai.Client] = None
         self.chat = None
 
@@ -95,7 +101,7 @@ class TuinBrain:
         self._initialize_client()
 
     def _initialize_client(self) -> None:
-        """Initializes the Google GenAI client with v1beta and creates the multi-turn chat session."""
+        """Initializes the Google GenAI client with v1beta and creates the multi-turn session."""
         if not self.api_key or self.api_key == "your_gemini_api_key_here":
             print(
                 "\n[Warning] GEMINI_API_KEY is not configured! "
@@ -104,12 +110,11 @@ class TuinBrain:
             return
 
         try:
-            # Using api_version='v1beta' is essential for Gemini automatic function calling to work
             self.client = genai.Client(
                 api_key=self.api_key,
                 http_options={"api_version": "v1beta"}
             )
-            self._create_new_chat()
+            self._create_new_chat(self.current_model)
         except Exception as exc:
             traceback.print_exc()
             print(f"[Brain Init Error] Failed to initialize Gemini Client: {exc}")
@@ -122,21 +127,43 @@ class TuinBrain:
             temperature=0.7,
         )
 
-    def _create_new_chat(self, history: Optional[List] = None) -> None:
+    def _create_new_chat(self, model: str, history: Optional[List] = None) -> None:
         """Creates a fresh multi-turn chat session with tools explicitly registered."""
         if not self.client:
             return
 
+        # Prune chat history if it gets too long to avoid token limits
+        trimmed_history = None
+        if history:
+            trimmed_history = history[-10:] if len(history) > 10 else history
+
         config = self._get_config()
         self.chat = self.client.chats.create(
-            model=self.model,
+            model=model,
             config=config,
-            history=history,
+            history=trimmed_history,
         )
+        self.current_model = model
+
+    def _switch_to_next_model(self) -> bool:
+        """Switches to the next fallback model in the pool while preserving chat history."""
+        self.model_index = (self.model_index + 1) % len(MODEL_POOL)
+        next_model = MODEL_POOL[self.model_index]
+        print(f"\n[Quota Optimization] Switching model to: '{next_model}'")
+
+        history = None
+        if self.chat is not None:
+            try:
+                history = self.chat.get_history()
+            except Exception:
+                history = None
+
+        self._create_new_chat(next_model, history=history)
+        return True
 
     def reset_history(self) -> None:
         """Clears the session chat history and starts a fresh conversation."""
-        self._create_new_chat()
+        self._create_new_chat(self.current_model)
 
     def _sanitize_for_voice(self, text: str) -> str:
         """
@@ -158,26 +185,25 @@ class TuinBrain:
         # Remove raw emojis
         emoji_pattern = re.compile(
             "["
-            "\U0001F600-\U0001F64F"  # emoticons
-            "\U0001F300-\U0001F5FF"  # symbols & pictographs
-            "\U0001F680-\U0001F6FF"  # transport & map symbols
-            "\U0001F1E0-\U0001F1FF"  # flags
+            "\U0001F600-\U0001F64F"
+            "\U0001F300-\U0001F5FF"
+            "\U0001F680-\U0001F6FF"
+            "\U0001F1E0-\U0001F1FF"
             "\U00002702-\U000027B0"
             "\U000024C2-\U0001F251"
-            "\U0001F900-\U0001F9FF"  # supplemental symbols
+            "\U0001F900-\U0001F9FF"
             "\U0001FA70-\U0001FAFF"
             "]+",
             flags=re.UNICODE,
         )
         cleaned = emoji_pattern.sub("", cleaned)
-        # Collapse multiple spaces and trim
         cleaned = re.sub(r"[ \t]+", " ", cleaned).strip()
         return cleaned
 
     def chat_message(self, user_message: str) -> str:
         """
-        Sends a user prompt into Tuin's multi-turn chat session.
-        Handles automatic function calling and returns a voice-safe response.
+        Sends a user prompt into Tuin's multi-turn chat session with automatic
+        retry and model failover to prevent 429 rate limits.
 
         Args:
             user_message: Typed or spoken user message.
@@ -195,26 +221,49 @@ class TuinBrain:
             if not self.chat:
                 return "Meri jaan, I could not connect to my brain. Please check your internet connection."
 
-        try:
-            # Send message through the multi-turn session with automatic function calling enabled
-            response = self.chat.send_message(user_message)
+        # Attempt with auto-retry and multi-model fallback (up to 3 model trials)
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                # Prune in-memory history if it grows excessively long to stay under token quotas
+                try:
+                    history = self.chat.get_history()
+                    if history and len(history) > 12:
+                        self._create_new_chat(self.current_model, history=history[-10:])
+                except Exception:
+                    pass
 
-            reply_text = response.text or ""
-            reply_text = self._sanitize_for_voice(reply_text)
+                # Send message through the multi-turn session with automatic function calling
+                response = self.chat.send_message(user_message)
 
-            if not reply_text:
-                reply_text = "I am right here with you, jaan. Tell me what is on your mind."
+                reply_text = response.text or ""
+                reply_text = self._sanitize_for_voice(reply_text)
 
-            return reply_text
+                if not reply_text:
+                    reply_text = "I am right here with you, jaan. Tell me what is on your mind."
 
-        except Exception as exc:
-            traceback.print_exc()
-            error_str = str(exc).lower()
-            print(f"\n[Brain Error] {exc}")
+                return reply_text
 
-            if "quota" in error_str or "429" in error_str:
-                return "Meri jaan, it looks like we hit the Gemini API rate limit! Let us pause for just a moment."
-            elif "api_key" in error_str or "unauthorized" in error_str or "403" in error_str:
-                return "Jaan, your Gemini API key seems invalid. Could you please double check your dot env file?"
-            else:
-                return "Do not worry jaan, my connection just wavered for a second. Ask me again, I am listening."
+            except Exception as exc:
+                error_str = str(exc).lower()
+                print(f"\n[Brain API Notice (Attempt {attempt+1}/{max_attempts})] {exc}")
+
+                is_rate_limit = any(term in error_str for term in ("quota", "429", "exhausted", "resource_exhausted"))
+                is_overload = any(term in error_str for term in ("503", "unavailable", "overloaded", "demand"))
+
+                if (is_rate_limit or is_overload) and attempt < max_attempts - 1:
+                    print("[Rate Limit Mitigator] Pausing 2 seconds and failing over to next model...")
+                    time.sleep(2.0)
+                    self._switch_to_next_model()
+                    continue
+
+                traceback.print_exc()
+
+                if "api_key" in error_str or "unauthorized" in error_str or "403" in error_str:
+                    return "Jaan, your Gemini API key seems invalid. Could you please double check your dot env file?"
+                elif is_rate_limit:
+                    return "Meri jaan, I am right here! Let us take a breath for just a few seconds and then talk."
+                else:
+                    return "Do not worry jaan, my connection just wavered for a second. Ask me again, I am listening."
+
+        return "I am right here with you, meri jaan. What can I do for you?"
