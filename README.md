@@ -6,14 +6,20 @@
 
 ## 🌟 Key Features
 
-1. **Romantic Life-Partner & Study Persona (`brain.py`)**:
-   - Powered by **Google Gemini 3.8 Flash** (`gemini-3.8-flash`) via the official `google-genai` SDK.
-   - Continuous multi-turn conversation memory with automatic function calling.
-   - Warm, tender, romantic, and deeply supportive tone blended with affectionate Hindi/Indian endearments (*"jaan"*, *"meri jaan"*, *"sunona"*, *"yaar"*).
+1. **Romantic Life-Partner & True Identity Persona (`brain.py`)**:
+   - Powered by **Google Gemini Flash-Lite & High-Quota Pool** (`gemini-flash-lite-latest`, `gemini-3.5-flash-lite`, `gemini-3.8-flash`) via the official `google-genai` SDK with smart rate-limit retry and failover.
+   - **True Identity**: Twinkle (lovingly called Tuin by Simran), a nursing student with an affectionate, sweet Indian touch.
+   - Continuous multi-turn conversation memory with sanitized history and automatic function calling.
+   - Warm, tender, romantic, and deeply supportive tone blended with affectionate Hindi/Indian endearments (*"meri jaan"*, *"sona"*, *"sunona"*, *"jaan"*).
    - Checks on your meals, sleep, mood, and stress levels while encouraging your B.Tech CSE / Data Science studies and Python coding.
    - Voice-first formatting (concise 2–4 sentences, strictly no markdown or emojis).
 
-2. **Windows 11 Automation Tools (`tools.py`)**:
+2. **Supabase Lifetime Cloud Memory (`memory.py`)**:
+   - **Never Forgets**: Persists lifetime memories forever to Supabase PostgreSQL cloud database.
+   - **Cross-Device Ready**: Synchronizes memories, conversations, and study sessions between Windows laptop and upcoming mobile web app.
+   - **Automatic Tool**: `remember_this(category, memory_key, content)` permanently records facts, preferences, habits, and exam dates.
+
+3. **Windows 11 Automation Tools (`tools.py`)**:
    - **`search_google(query)`**: Opens Google search immediately in the default browser.
    - **`play_song(song_name)`**: Plays any song hands-free on YouTube using `pywhatkit.playonyt`.
    - **`youtube_search_and_type(search_text)`**: Opens YouTube and visually types the search query into the search bar for you to watch.
@@ -47,6 +53,8 @@
    GEMINI_API_KEY=your_gemini_api_key
    FISH_API_KEY=your_fish_audio_api_key
    FISH_VOICE_ID=your_cloned_voice_id
+   SUPABASE_URL=your_supabase_project_url
+   SUPABASE_KEY=your_supabase_anon_public_key
    ```
 
 3. **Start Tuin**:

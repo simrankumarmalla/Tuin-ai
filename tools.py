@@ -51,12 +51,30 @@ def open_app(app_name: str) -> str:
 
     try:
         if "spotify" in clean_name:
-            try:
-                os.startfile("spotify:")
-                result = "Opened Spotify app for you, meri jaan."
-            except OSError:
+            if "web" in clean_name:
                 webbrowser.open("https://open.spotify.com")
-                result = "Spotify desktop app was not found, so I opened Spotify Web in your browser for you, jaan."
+                result = "Opened Spotify Web in your browser for you, meri jaan."
+            else:
+                spotify_exe = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WindowsApps\Spotify.exe")
+                spotify_roaming = os.path.expandvars(r"%APPDATA%\Spotify\Spotify.exe")
+                launched = False
+                for exe in (spotify_roaming, spotify_exe):
+                    if os.path.exists(exe):
+                        try:
+                            subprocess.Popen([exe])
+                            result = "Opened Spotify app for you, meri jaan."
+                            launched = True
+                            break
+                        except Exception:
+                            pass
+
+                if not launched:
+                    try:
+                        os.startfile("spotify:")
+                        result = "Opened Spotify app for you, meri jaan."
+                    except Exception:
+                        webbrowser.open("https://open.spotify.com")
+                        result = "Spotify desktop app could not be reached, so I opened Spotify Web in your browser for you, jaan."
 
         elif "whatsapp" in clean_name:
             try:
